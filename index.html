@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Beginner's Guide to rsync: Transfer Data Between Linux Devices | [YOUR NAME]</title>
+<meta name="description" content="A beginner-friendly guide to copying files and folders between two Linux machines using rsync over SSH, with video walkthroughs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--soft:#f6f8fa;--text:#1f2933;--muted:#5b6770;--line:#e1e5ea;--accent:#1d4ed8;--code:#0f172a;--codetext:#e2e8f0}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.7;font-size:17px}
+header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line)}
+.bar{max-width:900px;margin:auto;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.bar a{color:var(--text);text-decoration:none;font-weight:600;font-size:15px}
+.bar a:hover{color:var(--accent)}
+main{max-width:900px;margin:auto;padding:32px 20px 60px}
+h1{font-size:2.1rem;line-height:1.25;margin:.2em 0}
+h2{font-size:1.5rem;margin:2.2em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+h3{font-size:1.15rem;margin:1.6em 0 .4em}
+p.lead{color:var(--muted);font-size:1.1rem}
+.meta{color:var(--muted);font-size:14px}
+a{color:var(--accent)}
+code{font-family:"JetBrains Mono",Consolas,monospace;font-size:.88em;background:var(--soft);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+.cb{position:relative;margin:14px 0}
+pre{margin:0;background:var(--code);color:var(--codetext);padding:16px 18px;border-radius:8px;overflow-x:auto;font-family:"JetBrains Mono",Consolas,monospace;font-size:14px;line-height:1.55}
+.cb button{position:absolute;top:8px;right:8px;background:#334155;color:#e2e8f0;border:0;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer}
+.cb button:hover{background:#475569}
+.c{color:#94a3b8}
+.video{margin:22px 0}
+.video .frame{position:relative;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000;border:1px solid var(--line)}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.video figcaption{font-size:14px;color:var(--muted);margin-top:6px}
+.note,.warn{padding:12px 16px;border-radius:6px;margin:16px 0;border-left:4px solid var(--accent);background:#eff4ff}
+.warn{border-color:#b45309;background:#fff7ed}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:14px 0;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+nav.toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 22px;margin:22px 0}
+nav.toc ol{margin:6px 0 0;padding-left:20px}
+footer{border-top:1px solid var(--line);padding:24px 20px;text-align:center;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <a href="[YOUR_HOME_PAGE_URL]">&larr; All Projects</a>
+  <a href="https://github.com/Vihaan30g">GitHub</a>
+</div></header>
+
+<main>
+<p class="meta">Linux &middot; Networking &middot; File Transfer &middot; Last updated: [MONTH YEAR]</p>
+<h1>A Beginner's Guide to Transferring Data Between Devices with rsync</h1>
+<p class="lead">A step-by-step guide to copying files and folders from one Linux machine to another over SSH, with a video for every step.</p>
+
+<nav class="toc"><strong>Contents</strong>
+<ol>
+<li><a href="#what">What is rsync?</a></li>
+<li><a href="#how">How rsync works</a></li>
+<li><a href="#why">Why it is useful in robotics</a></li>
+<li><a href="#setup">Our setup</a></li>
+<li><a href="#s1">Step 1: Workstation IP</a></li>
+<li><a href="#s2">Step 2: SSH on the workstation</a></li>
+<li><a href="#s3">Step 3: Orin IP, SSH and rsync</a></li>
+<li><a href="#s4">Step 4: Destination folder</a></li>
+<li><a href="#s5">Step 5: Run rsync</a></li>
+<li><a href="#s6">Step 6: Confirm on the Orin</a></li>
+<li><a href="#s7">Step 7: Verify on the workstation</a></li>
+<li><a href="#opts">Useful options</a></li>
+<li><a href="#trouble">Troubleshooting</a></li>
+</ol></nav>
+
+<h2 id="what">1. What is rsync?</h2>
+<p><code>rsync</code> (<em>remote sync</em>) is a command-line tool that copies and synchronizes files and directories, either locally or between machines. It is installed by default on most Linux distributions and has been a standard tool since 1996.</p>
+<p>Unlike <code>cp</code> or <code>scp</code>, which blindly copy everything, rsync compares source and destination first and transfers only what is different.</p>
+
+<h2 id="how">2. How rsync works</h2>
+<ol>
+<li><strong>Connection.</strong> For remote transfers rsync usually tunnels through SSH. It starts an rsync process on both machines, which is why rsync must be installed on <em>both</em> ends.</li>
+<li><strong>File list.</strong> The sender builds a list of files to consider, with sizes and modification times.</li>
+<li><strong>Quick check.</strong> By default, a file is skipped if its size and modification time already match on the receiver.</li>
+<li><strong>Delta transfer.</strong> For files that changed, rsync splits the receiver's copy into blocks and compares rolling and strong checksums, so only the differing blocks are sent.</li>
+<li><strong>Finalize.</strong> The receiver rebuilds the file, then applies the permissions and timestamps (with <code>-a</code>).</li>
+</ol>
+<div class="note"><strong>Consequence:</strong> if a transfer is interrupted, re-running the same command skips what was already copied instead of starting over.</div>
+
+<h2 id="why">3. Why it is useful</h2>
+<ul>
+<li><strong>Large datasets.</strong> Datasets, logs, backups and recordings can reach tens of GB. Interrupted copies can simply be resumed.</li>
+<li><strong>Repeatable.</strong> After recording more data, run the same command and only new files move.</li>
+<li><strong>Preserves metadata.</strong> Permissions and timestamps are kept, which matters for backups and reproducible data.</li>
+<li><strong>No extra software</strong> beyond SSH, no USB drives, no cloud upload.</li>
+<li><strong>Works for any data</strong>: code, media, datasets, backups, or sensor recordings such as ROS 2 bag files (the example used in this guide).</li>
+<li><strong>Visible progress</strong> per file, with speed and ETA.</li>
+</ul>
+
+<h2 id="setup">4. Example setup used in this guide</h2>
+<p>The assumed audience is comfortable with Linux, ROS 2 and basic networking. In the videos, an NVIDIA Jetson Orin sends a folder of recorded robot data to a workstation, but the steps are identical for any two Linux machines. We connect them directly with an Ethernet cable and give each a static IP on the same subnet. No router is needed.</p>
+<table>
+<tr><th>Device</th><th>Role</th><th>User</th><th>IP address</th><th>Subnet mask</th></tr>
+<tr><td>Workstation</td><td>Destination</td><td><code>marsuser</code></td><td><code>192.168.10.1</code></td><td><code>255.255.255.0</code></td></tr>
+<tr><td>Jetson Orin</td><td>Source</td><td><code>marsorin</code></td><td><code>192.168.10.2</code></td><td><code>255.255.255.0</code></td></tr>
+</table>
+<p>In the example, data moves from the Orin: <code>/home/marsorin/rosbag/acads_floor2_1/</code> to the workstation: <code>/home/marsuser/rosbags/</code>.</p>
+<figure class="video">
+<div class="frame"><iframe src="https://www.youtube.com/embed/videoseries?list=PLGz92u_dfT6o" title="Full playlist" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Full playlist (all 7 videos). Individual videos appear in each step below.</figcaption></figure>
+
+<h2 id="s1">Step 1: Set a static IP on the workstation</h2>
+<p>Connect the Ethernet cable, then open <em>Settings &rarr; Network</em>, select the wired connection, and under <em>IPv4</em> choose <em>Manual</em>:</p>
+<table><tr><th>Field</th><th>Value</th></tr>
+<tr><td>Address</td><td><code>192.168.10.1</code></td></tr>
+<tr><td>Netmask</td><td><code>255.255.255.0</code></td></tr>
+<tr><td>Gateway</td><td>leave empty</td></tr></table>
+<p>Toggle the connection off and on to apply it.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/8VHtQHUAxSI" title="Video 1: Workstation IP setup" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 1: Workstation IP setup</figcaption></figure>
+
+<h2 id="s2">Step 2: Install and check the SSH server on the workstation</h2>
+<p>rsync connects over SSH, so the receiving machine must run an SSH server.</p>
+<div class="cb"><pre>sudo apt update
+sudo apt install openssh-server
+sudo systemctl status ssh</pre></div>
+<p>The status output should show <code>active (running)</code>. Press <code>q</code> to exit the status view.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/JIFIh_CZr7A" title="Video 2: SSH on the workstation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 2: Installing SSH on the workstation</figcaption></figure>
+
+<h2 id="s3">Step 3: Configure the Orin, install SSH, check rsync</h2>
+<p>On the Orin, set the wired connection manually the same way as Step 1, using <code>192.168.10.2</code> and <code>255.255.255.0</code>. Then test the link to the workstation:</p>
+<div class="cb"><pre>ping 192.168.10.1</pre></div>
+<p>Replies mean the cable and IPs are fine. Stop with <code>Ctrl+C</code>. Next install SSH:</p>
+<div class="cb"><pre>sudo apt update
+sudo apt install openssh-server</pre></div>
+<div class="warn"><strong>If the install fails or asks you to run another command.</strong> In the video, the install was interrupted with a message about an unfinished package configuration. The fix is to run the suggested command, then repeat the install:
+<div class="cb"><pre>sudo dpkg --configure -a
+sudo apt install openssh-server</pre></div>
+<code>dpkg --configure -a</code> finishes configuring packages left half-installed by an earlier interrupted install or update.</div>
+<p>Now check that rsync exists and that SSH is running:</p>
+<div class="cb"><pre>rsync --version
+sudo systemctl status ssh</pre></div>
+<p>If <code>rsync --version</code> says the command is not found, install it with <code>sudo apt install rsync</code>.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/YpBAlH572vU" title="Video 3: Orin setup" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 3: Orin IP, ping, SSH and rsync check</figcaption></figure>
+
+<h2 id="s4">Step 4: Create the destination folder on the workstation</h2>
+<p>On the workstation, create the folder that will receive the data. Confirm your user name first:</p>
+<div class="cb"><pre>whoami
+cd ~
+ls
+mkdir rosbags
+ls
+cd rosbags/</pre></div>
+<p>The prompt should now end in <code>~/rosbags</code>, which is <code>/home/marsuser/rosbags</code>.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/ZigiIcvmAAI" title="Video 4: Destination folder" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 4: Creating the destination folder</figcaption></figure>
+
+<h2 id="s5">Step 5: Run rsync from the Orin</h2>
+<p>On the <strong>Orin</strong> terminal, run:</p>
+<div class="cb"><pre>rsync -avh --progress /home/marsorin/rosbag/acads_floor2_1/ marsuser@192.168.10.1:/home/marsuser/rosbags/</pre></div>
+<p>The first connection asks you to confirm the host fingerprint (type <code>yes</code>) and then for the workstation user's password.</p>
+<h3>Command breakdown</h3>
+<table>
+<tr><th>Part</th><th>Meaning</th></tr>
+<tr><td><code>-a</code></td><td>Archive mode: recursive, and preserves symlinks, permissions, times, owner and group. Standard for directory copies.</td></tr>
+<tr><td><code>-v</code></td><td>Verbose: lists the files being transferred.</td></tr>
+<tr><td><code>-h</code></td><td>Human-readable sizes (MB, GB).</td></tr>
+<tr><td><code>--progress</code></td><td>Shows progress, speed and time remaining per file.</td></tr>
+<tr><td><code>/home/marsorin/rosbag/acads_floor2_1/</code></td><td>Source directory.</td></tr>
+<tr><td><code>marsuser@192.168.10.1:/home/marsuser/rosbags/</code></td><td>Destination in the form <code>user@host:path</code>.</td></tr>
+</table>
+<div class="warn"><strong>The trailing slash matters.</strong> <code>acads_floor2_1/</code> copies the <em>contents</em> of the folder into <code>rosbags/</code>. Without the slash, rsync creates <code>rosbags/acads_floor2_1/</code>. Use the one you want.</div>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/jiBcfKlN62A" title="Video 5: Running rsync" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 5: Running the rsync command</figcaption></figure>
+
+<h2 id="s6">Step 6: Confirm completion on the Orin</h2>
+<p>When finished, rsync prints a summary with the bytes sent, the speed, and the total size. The prompt returns with no error messages.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/439dKCzcijI" title="Video 6: Transfer finished" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 6: Transfer finished (Orin terminal)</figcaption></figure>
+
+<h2 id="s7">Step 7: Verify the data on the workstation</h2>
+<p>On the workstation, check the copied files:</p>
+<div class="cb"><pre>ls -lh ~/rosbags
+du -sh ~/rosbags</pre></div>
+<p>Compare the total size with the source. You can also open a few files to confirm they are intact.</p>
+<figure class="video"><div class="frame"><iframe src="https://www.youtube.com/embed/rUm-TmRdGuI" title="Video 7: Data on the workstation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+<figcaption>Video 7: Copied data on the workstation</figcaption></figure>
+
+<h2 id="opts">Useful options</h2>
+<table>
+<tr><th>Option</th><th>Use</th></tr>
+<tr><td><code>-n</code> / <code>--dry-run</code></td><td>Show what would be copied without copying. Great for testing a command.</td></tr>
+<tr><td><code>--partial</code></td><td>Keep partly transferred files so a resume continues from there. <code>-P</code> equals <code>--partial --progress</code>.</td></tr>
+<tr><td><code>-z</code></td><td>Compress during transfer. Helps on slow links, but little use for already-compressed data such as videos, images or archives.</td></tr>
+<tr><td><code>-c</code></td><td>Compare by checksum instead of size and time (slower, more thorough).</td></tr>
+<tr><td><code>--delete</code></td><td>Remove files on the destination that no longer exist on the source. Dangerous: test with <code>-n</code> first.</td></tr>
+<tr><td><code>--bwlimit=KBPS</code></td><td>Limit bandwidth.</td></tr>
+</table>
+<p>To pull data instead of pushing, run on the workstation: <code>rsync -avh --progress marsorin@192.168.10.2:/home/marsorin/rosbag/ ~/rosbags/</code></p>
+
+<h2 id="trouble">Troubleshooting</h2>
+<table>
+<tr><th>Problem</th><th>Likely cause and fix</th></tr>
+<tr><td>Ping fails</td><td>Check the cable, that both IPs are on <code>192.168.10.x</code>, and the mask is <code>255.255.255.0</code>.</td></tr>
+<tr><td><code>Connection refused</code></td><td>SSH server is not running on the workstation. Run <code>sudo systemctl start ssh</code>.</td></tr>
+<tr><td><code>Permission denied</code></td><td>Wrong user or password, or no write permission on the destination folder.</td></tr>
+<tr><td><code>rsync: command not found</code></td><td>Install on both machines: <code>sudo apt install rsync</code>.</td></tr>
+<tr><td>Interrupted transfer</td><td>Run the same command again; completed files are skipped.</td></tr>
+</table>
+</main>
+<footer>Written by [YOUR NAME] &middot; <a href="https://github.com/Vihaan30g">GitHub</a> &middot; <a href="[YOUR_YOUTUBE_CHANNEL_URL]">YouTube</a> &middot; <a href="mailto:[YOUR_EMAIL]">[YOUR_EMAIL]</a></footer>
+
+<script>
+document.querySelectorAll('.cb').forEach(function(b){
+  var btn=document.createElement('button');btn.textContent='Copy';
+  btn.onclick=function(){
+    var t=b.querySelector('pre').innerText;
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){btn.textContent='Copied';setTimeout(function(){btn.textContent='Copy'},1500)}).catch(function(){btn.textContent='Press Ctrl+C'});
+  };
+  b.appendChild(btn);
+});
+</script>
+</body>
+</html>
